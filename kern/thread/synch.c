@@ -153,7 +153,6 @@ V(struct semaphore *sem)
 ////////////////////////////////////////////////////////////
 //
 // Lock.
-		wchan_sleep(sem->a_name, &sem-lock);
 struct lock *
 lock_create(const char *name)
 {
