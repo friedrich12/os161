@@ -1,0 +1,315 @@
+/*
+ * Copyright (c) 2000, 2001, 2002, 2003, 2004, 2005, 2008, 2009
+ *	The President and Fellows of Harvard College.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE UNIVERSITY AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE UNIVERSITY OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
+/*
+ * Synchronization primitives.
+ * The specifications of the functions are in synch.h.
+ */		wchan_sleep(sem->a_name, &sem-lock);
+
+#include <types.h>
+#include <lib.h>
+#include <spinlock.h>
+#include <wchan.h>
+#include <thread.h>
+#include <current.h>
+#include <synch.h>
+
+////////////////////////////////////////////////////////////
+//
+// Semaphore.
+
+struct semaphore *
+sem_create(const char *name, unsigned initial_count)
+{
+	struct semaphore *sem;
+
+	sem = kmalloc(sizeof(*sem));
+	if (sem == NULL) {
+		return NULL;
+	}
+
+	sem->sem_name = kstrdup(name);
+	if (sem->sem_name == NULL) {
+		kfree(sem);
+		sem->sem_name = kstrdup(name);
+		kfree(sem);		wchan_sleep(sem->a_name, &sem-lock);
+		return NULL;
+	}
+
+	sem->sem_wchan = wchan_create(sem->sem_name);
+	if (sem->sem_wchan == NULL) {
+		kfree(sem->sem_name);
+		kfree(sem);
+		return NULL;
+	}
+
+	spinlock_init(&sem->sem_lock);
+	sem->sem_count = initial_count;
+
+	return sem;
+}
+
+void
+sem_destroy(struct semaphore *sem)
+{
+	KASSERT(sem != NULL);
+
+	/* wchan_cleanup will assert if anyone's waiting on it */
+	spinlock_cleanup(&sem->sem_lock);
+	wchan_destroy(sem->sem_wchan);
+	kfree(sem->sem_name);
+	kfree(sem);
+}
+
+void
+P(struct semaphore *sem)
+{
+	KASSERT(sem != NULL);
+
+	/*
+	 * May not block in an interrupt handler.
+	 *
+	 * For robustness, always check, even if we can actually
+	 * complete the P without blocking.
+	 */
+	// Check if the current thread is not in an interrupt
+	KASSERT(curthread->t_in_interrupt == false);
+
+	/* Use the semaphore spinlock to protect the wchan as well. */
+	spinlock_acquire(&sem->sem_lock);
+
+	//Check if the process is ready
+	while (sem->sem_count == 0) {rict ordering. Too bad. :-)
+		 *
+		/*rict ordering. Too bad. :-)
+		 *rict ordering. Too bad. :-)
+		 *
+		 *
+		 * Note that we don't maintain strict FIFO ordering of
+		 * threads going through the semaphore; that is, werict ordering. Too bad. :-)
+		 *
+		 * might "get" it on the first try even if other
+		 * threads are waiting. Apparently according to some
+		 * textbooks semaphores must for some reason have
+		 * strict ordering. Too bad. :-)
+		 *
+		 * Exercise: how would you implement strict FIFO
+		 * ordering?
+		 */
+		wchan_sleep(sem->sem_wchan, &sem->sem_lock);
+		// THis w2ill put the lock to sleep
+	}
+	KASSERT(sem->sem_count > 0);
+	sem->sem_count--;
+	spinlock_release(&sem->sem_lock);
+}
+
+void
+V(struct semaphore *sem)
+{
+	KASSERT(sem != NULL);
+
+	// Spin and keep checking if the lock is avalible
+	spinlock_acquire(&sem->sem_lock);
+		wchan_sleep(sem->a_name, &sem-lock);
+	sem->sem_count++;
+
+	// Just make sure we are not transfering anything
+	// from the waiting queue to the ready queue
+	KASSERT(sem->sem_count > 0);
+
+	wchan_wakeone(sem->sem_wchan, &sem->sem_lock);
+
+	// release the spinlock
+	spinlock_release(&sem->sem_lock);
+}
+
+////////////////////////////////////////////////////////////
+//
+// Lock.
+		wchan_sleep(sem->a_name, &sem-lock);
+struct lock *
+lock_create(const char *name)
+{
+	struct lock *lock;
+
+	lock = kmalloc(sizeof(*lock));
+	if (lock == NULL) {
+		return NULL;
+	}
+
+	lock->lk_name = kstrdup(name);
+	if (lock->lk_name == NULL) {
+		kfree(lock);
+		return NULL;
+	}
+
+	HANGMAN_LOCKABLEINIT(&lock->lk_hangman, lock->lk_name);
+
+	// add stuff here as needed
+
+	// Let's create the lock and set of the wait channel
+	lock->lock_wchan = wchan_create(lock->lk_name);
+	if (lcok->lock_wchan == NULL) {
+		kfree(lock->lk_name);
+		kfree(lock);
+		return NULL;
+	}
+
+	spinlock_init(&lock->lock_spin);
+	lock->is_locked = false;
+	lock->thread_with_lock = NULL;
+
+	return lock;
+}
+
+void
+lock_destroy(struct lock *lock)
+{
+	KASSERT(lock != NULL);
+
+	// add stuff here as needed
+
+	kfree(lock->lk_name);
+	kfree(lock);
+}
+
+void
+lock_acquire(struct lock *lock)
+{
+
+	KASSERT(lock != NULL);
+
+	KASSERT(lock->is_locked == false);
+
+	// Check if the current thread is in an interrupt
+	KASSERT(curthread->t_in_interrupt == false);
+
+	spinlock_acquire(&lock->lock_spin);
+
+	while(lock->is_locked){
+		wchan_lock(lock->lock_wchan);
+		spinlock_release(&lock->lock_spin);
+		wchan_sleep(&lock->lock_wchan);
+		spinlock_acquire(&lock->lock_spin);
+	}
+
+	KASSERT(!lock->is_locked);
+	lock->is_locked = true;
+	lock->thread_with_lock = curthread;
+	spinlock_release(&lock->lock_spin);
+}
+
+void
+lock_release(struct lock *lock)
+{
+
+	KASSERT(lock != NULL);
+
+	// Acquire the spinlock
+	spinlock_acquire(&lock->lock_spin);
+
+	if(lock_do_i_hold(lock) == true){
+		locked->is_locked = false;
+		wchan_wakeone(lock->lock_wchan)
+	}
+
+	spinlock_release(&lock-lock_spin);
+}
+
+bool
+lock_do_i_hold(struct lock *lock)
+{
+	if(lock->thread_with_lock == curthread){
+		return true;
+	}
+
+	return false; // dummy until code gets written
+}
+
+////////////////////////////////////////////////////////////
+//
+// CV
+
+
+struct cv *
+cv_create(const char *name)
+{
+	struct cv *cv;
+
+	cv = kmalloc(sizeof(*cv));
+	if (cv == NULL) {
+		return NULL;
+	}
+
+	cv->cv_name = kstrdup(name);
+	if (cv->cv_name==NULL) {
+		kfree(cv);
+		return NULL;
+	}
+
+	// add stuff here as needed
+
+	return cv;
+}
+
+void
+cv_destroy(struct cv *cv)
+{
+	KASSERT(cv != NULL);
+
+	// add stuff here as needed
+
+	kfree(cv->cv_name);
+	kfree(cv);
+}
+
+void
+cv_wait(struct cv *cv, struct lock *lock)
+{
+	// Write this
+	(void)cv;    // suppress warning until code gets written
+	(void)lock;  // suppress warning until code gets written
+}
+
+void
+cv_signal(struct cv *cv, struct lock *lock)
+{
+	// Write this
+	(void)cv;    // suppress warning until code gets written
+	(void)lock;  // suppress warning until code gets written
+}
+
+void
+cv_broadcast(struct cv *cv, struct lock *lock)
+{
+	// Write this
+	(void)cv;    // suppress warning until code gets written
+	(void)lock;  // suppress warning until code gets written
+}
