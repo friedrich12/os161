@@ -157,6 +157,7 @@ struct lock *
 lock_create(const char *name)
 {
 	struct lock *lock;
+	struct 
 
 	lock = kmalloc(sizeof(*lock));
 	if (lock == NULL) {
@@ -207,7 +208,9 @@ lock_acquire(struct lock *lock)
 
 	KASSERT(lock != NULL);
 
-	//KASSERT(lock->is_locked == false);
+	// Use this to make sure no one holds the lock right
+	// now
+	KASSERT(lock->is_locked == false);
 
 	// Check if the current thread is in an interrupt
 	KASSERT(curthread->t_in_interrupt == false);
@@ -215,7 +218,7 @@ lock_acquire(struct lock *lock)
 	spinlock_acquire(&lock->lock_spin);
 
 	while(lock->is_locked){
-		wchan_lock(lock->lock_wchan);
+		//wchan_create(lock->lock_wchan);
 		spinlock_release(&lock->lock_spin);
 		wchan_sleep(lock->lock_wchan);
 		spinlock_acquire(&lock->lock_spin);
