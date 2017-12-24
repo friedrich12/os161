@@ -175,7 +175,7 @@ lock_create(const char *name)
 
 	// Let's create the lock and set of the wait channel
 	lock->lock_wchan = wchan_create(lock->lk_name);
-	if (lcok->lock_wchan == NULL) {
+	if (lock->lock_wchan == NULL) {
 		kfree(lock->lk_name);
 		kfree(lock);
 		return NULL;
@@ -195,6 +195,8 @@ lock_destroy(struct lock *lock)
 
 	// add stuff here as needed
 
+	spinlock_cleanup(&lock->lock_spin);
+	wchan_destroy(lock->lock_wchan);
 	kfree(lock->lk_name);
 	kfree(lock);
 }
@@ -205,7 +207,7 @@ lock_acquire(struct lock *lock)
 
 	KASSERT(lock != NULL);
 
-	KASSERT(lock->is_locked == false);
+	//KASSERT(lock->is_locked == false);
 
 	// Check if the current thread is in an interrupt
 	KASSERT(curthread->t_in_interrupt == false);
@@ -215,7 +217,7 @@ lock_acquire(struct lock *lock)
 	while(lock->is_locked){
 		wchan_lock(lock->lock_wchan);
 		spinlock_release(&lock->lock_spin);
-		wchan_sleep(&lock->lock_wchan);
+		wchan_sleep(lock->lock_wchan);
 		spinlock_acquire(&lock->lock_spin);
 	}
 
@@ -230,26 +232,33 @@ lock_release(struct lock *lock)
 {
 
 	KASSERT(lock != NULL);
+	//KASSERT(lock->thread_with_lock == curthread);
 
 	// Acquire the spinlock
 	spinlock_acquire(&lock->lock_spin);
 
-	if(lock_do_i_hold(lock) == true){
+	if(lock_do_i_hold(lock)){
 		locked->is_locked = false;
 		wchan_wakeone(lock->lock_wchan)
 	}
 
-	spinlock_release(&lock-lock_spin);
+	spinlock_release(&lock->lock_spin);
 }
 
+
+//ToDo: Fix failure with this error with lock do i hold
 bool
 lock_do_i_hold(struct lock *lock)
 {
+	KASSERT(lock !- NULL);
+
+	// Check if the current thread holds the lock
 	if(lock->thread_with_lock == curthread){
 		return true;
+	
+	}else{
+		return false;
 	}
-
-	return false; // dummy until code gets written
 }
 
 ////////////////////////////////////////////////////////////
